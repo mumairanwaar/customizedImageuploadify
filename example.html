@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ImageUploadify - Example</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css"
+        integrity="sha384-AYmEC3Yw5cVb3ZcuHtOA93w35dYTsvhLPVnYs9eStHfGJvOvKxVfELGroGkvsg+p" crossorigin="anonymous" />
+
+    <link href="dist/imageuploadify.min.css" rel="stylesheet">
+</head>
+
+<body>
+
+    <div class="container" style="margin-top: 1em;">
+        <form>
+            <input type="file" accept="*" multiple id="fileInputSupportingDocs">
+        </form>
+    </div>
+
+
+
+    <br>
+    <br>
+    <br>
+    <div>
+        <button id="btn"> click me to manually add files into files list</button>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"
+        integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"
+        integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q"
+        crossorigin="anonymous"></script>
+
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+        integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+        crossorigin="anonymous"></script>
+
+    <script type="text/javascript" src="imageuploadify.js"></script>
+
+    <script type="text/javascript">
+
+
+        var resources = [];
+
+
+        $(document).ready(function () {
+            $('input[type="file"]').imageuploadify({
+
+                deletedCallback: (args) => {
+
+                    resources = resources.filter(item => item.fileId !== args.id);
+
+                    console.log('this is delete callback funciton called. arguments:');
+                    console.log(args);
+                },
+                beforeFileAddCallback: async  (id, file, addFilesManually) => {
+
+
+                    if (addFilesManually) {
+
+                        //just add the resource into the resources object 
+                        resources.push(
+
+                            {
+                                fileId: id, resource: {
+                                    id: file.id,
+                                    repository: file.repository,
+                                    name: file.name,
+                                    location: file.location,
+                                    authorizationHeader: file.authorizationHeader
+                                }
+                            }
+                        );
+
+                    } else {
+
+                        //call epc to create resource and push the file to the server and get the resource object
+
+                       var resultResource  =  await createResource(selectedResource);
+
+
+                        resources.push(
+                            {
+                                fileId: id, resource: {
+                                    id: resultResource.id,
+                                    repository: resultResource.repository,
+                                    name: resultResource.name,
+                                    location: resultResource.location,
+                                    authorizationHeader: resultResource.authorizationHeader
+                                }
+                            }
+                        );
+                    }
+
+                    console.log('File controle identifier: ' + id);
+                    console.log('File contorle also provide file to add, file name is ' + file.name + '')
+                },
+
+                laodingFilesStartCallback: () => {
+                    console.log('this is laodingFilesStartCallback notifying, Start loading files');
+                },
+                loadingFilesCompletedCallback: () => {
+                    console.log('this is loadingFilesCompletedCallback notifying, files load completed');
+                }
+
+
+            });
+
+
+        });
+
+
+        $('#btn').click(() => {
+            var epcfiles = [{
+                id: "987",
+                repository: "urn:elli:skydrive",
+                name: "epc file.pdf",
+                type: "pdf",
+                mimeType: "pdf"
+            },
+            {
+                id: "654",
+                repository: "urn:elli:skydrive",
+                name: "epc file 2.text",
+                type: "pdf",
+                mimeType: "text"
+            }];
+
+            $('#fileInputSupportingDocs').AddFiles(epcfiles);
+        });
+
+
+        async function createResource(selectedResource) {
+            try {
+                const transactionObject = await host.getObject('transaction')
+
+                // Step 1: Create an EPC resource
+                const resourceData = await transactionObject.createResource({ name: selectedResource.name })
+
+                // Step 2: Stream the file to the resource location
+                const result = await fetch(resourceData.location, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': selectedResource.type,
+                        'Authorization': resourceData.authorizationHeader
+                    },
+                    body: selectedResource
+                })
+
+                // Upon success - commit the resource to the transaction request
+                 return {
+                    id: resourceData.id,
+                    name: resourceData.name,
+                    mimeType: selectedResource.type
+                };
+            } catch (error) {
+                console.log({ error })
+            }
+        }
+    </script>
+
+</body>
+
+</html>
